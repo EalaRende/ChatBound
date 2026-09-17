@@ -16,7 +16,7 @@ public sealed class ChatFilterService
     public bool TryFilter(IHandleableChatMessage message)
     {
         var channel = message.LogKind;
-        if (!configuration.Enabled || !configuration.Channels.Contains(channel))
+        if (!configuration.Enabled || channel == XivChatType.TellOutgoing || !configuration.Channels.Contains(channel))
             return false;
 
         if (!configuration.Profiles.TryGetValue(configuration.ActiveProfile, out var words))

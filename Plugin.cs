@@ -20,6 +20,7 @@ public sealed class Plugin : IDalamudPlugin
 
     private readonly ChatBoundConfiguration configuration;
     private readonly ChatFilterService filter;
+    private readonly ServerSyncService server;
     private readonly WindowSystem windows = new("ChatBound");
     private readonly SettingsWindow settings;
 
@@ -27,7 +28,8 @@ public sealed class Plugin : IDalamudPlugin
     {
         configuration = ChatBoundConfiguration.Load(PluginInterface);
         filter = new ChatFilterService(configuration);
-        settings = new SettingsWindow(configuration, PluginInterface, TargetManager);
+        server = new ServerSyncService(configuration);
+        settings = new SettingsWindow(configuration, PluginInterface, TargetManager, server);
         windows.AddWindow(settings);
 
         CommandManager.AddHandler("/chatbound", new Dalamud.Game.Command.CommandInfo((_, _) => settings.IsOpen = true)
@@ -50,5 +52,6 @@ public sealed class Plugin : IDalamudPlugin
         PluginInterface.UiBuilder.OpenConfigUi -= OpenConfig;
         windows.RemoveAllWindows();
         CommandManager.RemoveHandler("/chatbound");
+        server.Dispose();
     }
 }

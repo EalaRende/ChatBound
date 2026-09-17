@@ -14,17 +14,21 @@ public sealed class SettingsWindow : Window
     private readonly ChatBoundConfiguration configuration;
     private readonly IDalamudPluginInterface pluginInterface;
     private readonly ITargetManager targetManager;
+    private readonly ServerSyncService server;
     private string dictionaryText = string.Empty;
     private string controller = string.Empty;
     private string profile = string.Empty;
     private string pairingCodeInput = string.Empty;
+    private string serverUrl = string.Empty;
+    private int serverRoleIndex;
 
-    public SettingsWindow(ChatBoundConfiguration configuration, IDalamudPluginInterface pluginInterface, ITargetManager targetManager)
+    public SettingsWindow(ChatBoundConfiguration configuration, IDalamudPluginInterface pluginInterface, ITargetManager targetManager, ServerSyncService server)
         : base("ChatBound | Local Profile")
     {
         this.configuration = configuration;
         this.pluginInterface = pluginInterface;
         this.targetManager = targetManager;
+        this.server = server;
         Size = new System.Numerics.Vector2(560, 520);
         SizeCondition = ImGuiCond.FirstUseEver;
         LoadState();
@@ -51,7 +55,82 @@ public sealed class SettingsWindow : Window
     private void DrawOwnerTab()
     {
         ImGui.Text("Local owner consent");
-        ImGui.TextWrapped("Select a player in FFXIV, add them as the owner, then exchange the displayed code manually. This does not send data or grant remote control.");
+        ImGui.TextWrapped("The owner may define what this pet understands in incoming chat. ChatBound never changes, blocks, or filters messages sent by the pet.");
+        ImGui.Text("Server URL");
+        ImGui.SetNextItemWidth(-1);
+        if (ImGui.InputText("##server-url", ref serverUrl, 256))
+        {
+            configuration.ServerUrl = serverUrl;
+            Save();
+        }
+        ImGui.Text($"Remote role: {configuration.ServerRole}");
+        var role = serverRoleIndex;
+        if (ImGui.Combo("Role", ref role, "Pet\0Owner\0"))
+        {
+            serverRoleIndex = role;
+            configuration.ServerRole = role == 0 ? "pet" : "owner";
+            configuration.ServerClientId = string.Empty;
+            configuration.ServerToken = string.Empty;
+            configuration.RemotePairingConfirmed = false;
+            Save();
+        }
+        if (ImGui.Button("Connect to ChatBound server"))
+        {
+            var session = server.Connect();
+            Save();
+            ImGui.SameLine();
+            ImGui.Text(session is null ? "Connection failed." : "Connected.");
+        }
+        if (configuration.ServerRole == "pet" && ImGui.Button("Create remote pairing code"))
+        {
+            var result = server.CreatePairingCode();
+            if (result is not null)
+                configuration.OwnerPairingCode = result.Code;
+            Save();
+        }
+        if (configuration.ServerRole == "owner")
+        {
+            ImGui.SetNextItemWidth(-1);
+            ImGui.InputText("Remote pairing code", ref pairingCodeInput, 32);
+            if (ImGui.Button("Accept remote pairing") && server.AcceptPairing(pairingCodeInput))
+            {
+                configuration.RemotePairingConfirmed = true;
+                Save();
+            }
+        }
+        if (configuration.ServerRole == "pet" && configuration.RemotePairingConfirmed)
+        {
+            var allowOwner = configuration.AllowOwnerProfileChanges;
+            if (ImGui.Checkbox("Allow owner to change incoming profile", ref allowOwner))
+            {
+                configuration.AllowOwnerProfileChanges = allowOwner;
+                server.SetOwnerPermission(allowOwner);
+                Save();
+            }
+        }
+        if (configuration.ServerRole == "owner" && ImGui.Button("Publish incoming profile to Pet"))
+        {
+            var state = server.UpdateProfile(configuration);
+            ImGui.SameLine();
+            ImGui.Text(state is null ? "Not permitted or not paired." : "Profile published.");
+        }
+        if (configuration.ServerRole == "pet" && configuration.RemotePairingConfirmed && ImGui.Button("Apply remote incoming profile"))
+        {
+            var state = server.GetState();
+            if (state is not null && state.AllowOwnerProfileChanges)
+            {
+                ApplyRemoteState(state);
+                Save();
+            }
+        }
+        if (ImGui.Button("Revoke remote pairing"))
+        {
+            server.Revoke();
+            configuration.RemotePairingConfirmed = false;
+            configuration.AllowOwnerProfileChanges = false;
+            configuration.Enabled = false;
+            Save();
+        }
         ImGui.Separator();
 
         var target = targetManager.Target;
@@ -132,7 +211,8 @@ public sealed class SettingsWindow : Window
         }
 
         ImGui.Spacing();
-        ImGui.Text("Filtered channels");
+        ImGui.Text("Incoming chat channels");
+        ImGui.TextDisabled("Only messages received by this client are filtered.");
         DrawChannel(XivChatType.Say, "Say");
         ImGui.SameLine();
         DrawChannel(XivChatType.TellIncoming, "Tell");
@@ -170,6 +250,21 @@ public sealed class SettingsWindow : Window
     {
         profile = configuration.ActiveProfile;
         controller = configuration.ControllerName;
+        serverUrl = configuration.ServerUrl;
+        serverRoleIndex = string.Equals(configuration.ServerRole, "owner", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
+        LoadDictionary();
+    }
+
+    private void ApplyRemoteState(PairingState state)
+    {
+        configuration.Enabled = state.Enabled;
+        configuration.UnknownWords = Enum.TryParse<UnknownWordMode>(state.UnknownWordMode, out var mode) ? mode : UnknownWordMode.ReplaceWithDots;
+        configuration.Channels = state.Channels
+            .Select(channel => Enum.TryParse<XivChatType>(channel, out var parsed) ? parsed : (XivChatType?)null)
+            .Where(channel => channel.HasValue)
+            .Select(channel => channel!.Value)
+            .ToHashSet();
+        configuration.Profiles[configuration.ActiveProfile] = state.Words.ToHashSet(StringComparer.OrdinalIgnoreCase);
         LoadDictionary();
     }
 

@@ -9,6 +9,9 @@
     <RootNamespace>ChatBound</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Remove="ChatBound.Server\**" />
+    <None Remove="ChatBound.Server\**" />
+    <Content Remove="ChatBound.Server\**" />
     <None Include="Dictionaries\**\*" CopyToOutputDirectory="PreserveNewest" />
     <None Include="ChatBound.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>

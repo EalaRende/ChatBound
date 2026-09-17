@@ -16,6 +16,12 @@ public sealed class ChatBoundConfiguration : IPluginConfiguration
     public ulong OwnerObjectId { get; set; }
     public string OwnerPairingCode { get; set; } = string.Empty;
     public bool OwnerConsentConfirmed { get; set; }
+    public string ServerUrl { get; set; } = "[removed]";
+    public string ServerRole { get; set; } = "pet";
+    public string ServerClientId { get; set; } = string.Empty;
+    public string ServerToken { get; set; } = string.Empty;
+    public bool RemotePairingConfirmed { get; set; }
+    public bool AllowOwnerProfileChanges { get; set; }
     public UnknownWordMode UnknownWords { get; set; } = UnknownWordMode.ReplaceWithDots;
     public HashSet<XivChatType> Channels { get; set; } = new()
     {
