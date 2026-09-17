@@ -1,0 +1,10 @@
+{
+  "dotnet.defaultSolution": "ChatBound.sln",
+  "chat.tools.terminal.autoApprove": {
+    "git remote": true,
+    "/^Set-Location 'D:\\\\Progr\\\\FFXIV plugin Puppy'; git --version; git status --short; git remote -v$/": {
+      "approve": true,
+      "matchCommandLine": true
+    }
+  }
+}

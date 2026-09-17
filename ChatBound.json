@@ -1,0 +1,13 @@
+{
+  "Author": "ChatBound",
+  "Name": "ChatBound",
+  "InternalName": "ChatBound",
+  "AssemblyVersion": "0.1.0.0",
+  "Description": "Local, consent-oriented chat comprehension profiles for FFXIV.",
+  "ApplicableVersion": "any",
+  "RepoUrl": "",
+  "DalamudApiLevel": 13,
+  "LoadPriority": 0,
+  "Punchline": "Choose what your local chat profile can understand.",
+  "AcceptsFeedback": true
+}
