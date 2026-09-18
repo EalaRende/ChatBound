@@ -3,3 +3,9 @@ obj/
 .vs/
 *.user
 ChatBound.Server/local-secrets/
+ChatBound.Server/bin/
+ChatBound.Server/obj/
+server-publish/
+dist/
+chatbound-server.json
+ChatBound.Server/chatbound-server.json
