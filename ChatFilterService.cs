@@ -24,10 +24,12 @@ public sealed class ChatFilterService
     {
         var channel = message.LogKind;
         var localPlayerName = objectTable.LocalPlayer?.Name.TextValue;
+        var senderText = message.Sender.TextValue;
+        var originalSenderText = message.OriginalSender.ToString();
         var isLocalPlayerMessage = message.SourceKind == XivChatRelationKind.LocalPlayer ||
             (!string.IsNullOrWhiteSpace(localPlayerName) &&
-             (string.Equals(message.Sender.TextValue, localPlayerName, StringComparison.Ordinal) ||
-              string.Equals(message.OriginalSender.ToString(), localPlayerName, StringComparison.Ordinal)));
+             ((IsSenderMatch(senderText, localPlayerName)) ||
+              IsSenderMatch(originalSenderText, localPlayerName)));
         if (isLocalPlayerMessage ||
             configuration.ServerRole != "pet" ||
             !configuration.Enabled ||
@@ -71,5 +73,12 @@ public sealed class ChatFilterService
         if (changed)
             message.Message = new SeString(new TextPayload(result));
         return changed;
+    }
+
+    private static bool IsSenderMatch(string senderText, string localPlayerName)
+    {
+        return !string.IsNullOrWhiteSpace(senderText) &&
+            (senderText.Contains(localPlayerName, StringComparison.OrdinalIgnoreCase) ||
+             localPlayerName.Contains(senderText, StringComparison.OrdinalIgnoreCase));
     }
 }
