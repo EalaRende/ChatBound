@@ -14,6 +14,7 @@ public sealed class Plugin : IDalamudPlugin
 
     [PluginService] internal static IChatGui ChatGui { get; private set; } = null!;
     [PluginService] internal static ICommandManager CommandManager { get; private set; } = null!;
+    [PluginService] internal static IObjectTable ObjectTable { get; private set; } = null!;
     [PluginService] internal static IDalamudPluginInterface PluginInterface { get; private set; } = null!;
 
     private readonly ChatBoundConfiguration configuration;
@@ -25,7 +26,7 @@ public sealed class Plugin : IDalamudPlugin
     public Plugin()
     {
         configuration = ChatBoundConfiguration.Load(PluginInterface);
-        filter = new ChatFilterService(configuration);
+        filter = new ChatFilterService(configuration, ObjectTable);
         server = new ServerSyncService(configuration);
         settings = new SettingsWindow(configuration, PluginInterface, server);
         windows.AddWindow(settings);

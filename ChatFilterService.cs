@@ -3,6 +3,7 @@ using Dalamud.Game.Chat;
 using Dalamud.Game.Text;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Game.Text.SeStringHandling.Payloads;
+using Dalamud.Plugin.Services;
 
 namespace ChatBound;
 
@@ -10,13 +11,21 @@ public sealed class ChatFilterService
 {
     private static readonly Regex WordPattern = new(@"[\p{L}\p{N}_']+", RegexOptions.Compiled);
     private readonly ChatBoundConfiguration configuration;
+    private readonly IObjectTable objectTable;
 
-    public ChatFilterService(ChatBoundConfiguration configuration) => this.configuration = configuration;
+    public ChatFilterService(ChatBoundConfiguration configuration, IObjectTable objectTable)
+    {
+        this.configuration = configuration;
+        this.objectTable = objectTable;
+    }
 
     public bool TryFilter(IHandleableChatMessage message)
     {
         var channel = message.LogKind;
-        if (message.SourceKind == XivChatRelationKind.LocalPlayer ||
+        var localPlayerName = objectTable.LocalPlayer?.Name.TextValue;
+        var isLocalPlayerMessage = message.SourceKind == XivChatRelationKind.LocalPlayer ||
+            (!string.IsNullOrWhiteSpace(localPlayerName) && string.Equals(message.Sender.TextValue, localPlayerName, StringComparison.Ordinal));
+        if (isLocalPlayerMessage ||
             !configuration.Enabled ||
             channel == XivChatType.TellOutgoing ||
             !configuration.Channels.Contains(channel))
