@@ -16,7 +16,7 @@ public sealed class SettingsWindow : Window
     private string serverToken = string.Empty;
     private int serverRoleIndex;
     private DateTime nextServerSync = DateTime.MinValue;
-    private static readonly TimeSpan ServerSyncInterval = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan ServerSyncInterval = TimeSpan.FromSeconds(1);
     private string lastPublishedProfile = string.Empty;
     private string lastAppliedProfile = string.Empty;
 

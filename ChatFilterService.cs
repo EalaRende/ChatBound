@@ -25,7 +25,9 @@ public sealed class ChatFilterService
         var channel = message.LogKind;
         var localPlayerName = objectTable.LocalPlayer?.Name.TextValue;
         var isLocalPlayerMessage = message.SourceKind == XivChatRelationKind.LocalPlayer ||
-            (!string.IsNullOrWhiteSpace(localPlayerName) && string.Equals(message.Sender.TextValue, localPlayerName, StringComparison.Ordinal));
+            (!string.IsNullOrWhiteSpace(localPlayerName) &&
+             (string.Equals(message.Sender.TextValue, localPlayerName, StringComparison.Ordinal) ||
+              string.Equals(message.OriginalSender.ToString(), localPlayerName, StringComparison.Ordinal)));
         if (isLocalPlayerMessage ||
             configuration.ServerRole != "pet" ||
             !configuration.Enabled ||
