@@ -36,7 +36,7 @@ public sealed class Plugin : IDalamudPlugin
             HelpMessage = "Open ChatBound settings"
         });
         ChatGui.ChatMessage += OnChatMessage;
-        PluginInterface.UiBuilder.Draw += windows.Draw;
+        PluginInterface.UiBuilder.Draw += OnUiDraw;
         PluginInterface.UiBuilder.OpenMainUi += OpenMainUi;
         PluginInterface.UiBuilder.OpenConfigUi += OpenConfig;
     }
@@ -45,12 +45,18 @@ public sealed class Plugin : IDalamudPlugin
 
     private void OpenConfig() => settings.IsOpen = true;
 
+    private void OnUiDraw()
+    {
+        settings.SynchronizeServer();
+        windows.Draw();
+    }
+
     private void OnChatMessage(IHandleableChatMessage message) => filter.TryFilter(message);
 
     public void Dispose()
     {
         ChatGui.ChatMessage -= OnChatMessage;
-        PluginInterface.UiBuilder.Draw -= windows.Draw;
+        PluginInterface.UiBuilder.Draw -= OnUiDraw;
         PluginInterface.UiBuilder.OpenMainUi -= OpenMainUi;
         PluginInterface.UiBuilder.OpenConfigUi -= OpenConfig;
         windows.RemoveAllWindows();

@@ -13,9 +13,12 @@ public sealed class SettingsWindow : Window
     private readonly ServerSyncService server;
     private string dictionaryText = string.Empty;
     private string profile = string.Empty;
-    private string pairingCodeInput = string.Empty;
     private string serverUrl = string.Empty;
+    private string serverToken = string.Empty;
     private int serverRoleIndex;
+    private DateTime nextServerSync = DateTime.MinValue;
+    private string lastPublishedProfile = string.Empty;
+    private string lastAppliedProfile = string.Empty;
 
     public SettingsWindow(ChatBoundConfiguration configuration, IDalamudPluginInterface pluginInterface, ServerSyncService server)
         : base("ChatBound | Local Profile")
@@ -37,33 +40,90 @@ public sealed class SettingsWindow : Window
                 DrawOwnerTab();
                 ImGui.EndTabItem();
             }
+            var profileTabDisabled = configuration.ServerRole == "pet" && configuration.ActivationLocked;
+            if (profileTabDisabled)
+                ImGui.BeginDisabled();
             if (ImGui.BeginTabItem("Profile & dictionary"))
             {
                 DrawProfileTab();
                 ImGui.EndTabItem();
             }
+            if (profileTabDisabled)
+                ImGui.EndDisabled();
             ImGui.EndTabBar();
         }
     }
 
+    public void SynchronizeServer()
+    {
+        if (!configuration.ServerConnected || DateTime.UtcNow < nextServerSync)
+            return;
+
+        nextServerSync = DateTime.UtcNow.AddSeconds(1);
+        if (configuration.ServerRole == "owner")
+        {
+            var profile = BuildProfileFingerprint(configuration);
+            if (profile == lastPublishedProfile)
+                return;
+
+            if (server.UpdateProfile(configuration) is not null)
+                lastPublishedProfile = profile;
+            return;
+        }
+
+        var state = server.GetState();
+        if (state is null || !state.AllowOwnerProfileChanges)
+            return;
+
+        var remoteProfile = BuildRemoteProfileFingerprint(state);
+        if (remoteProfile == lastAppliedProfile)
+            return;
+
+        ApplyRemoteState(state);
+        lastAppliedProfile = remoteProfile;
+        Save();
+    }
+
+    private static string BuildProfileFingerprint(ChatBoundConfiguration source)
+    {
+        var words = source.Profiles.TryGetValue(source.ActiveProfile, out var profileWords)
+            ? profileWords.Order(StringComparer.OrdinalIgnoreCase)
+            : Enumerable.Empty<string>();
+        var channels = source.Channels.Select(channel => channel.ToString()).Order(StringComparer.Ordinal);
+        return string.Join("\n", [
+            source.Enabled.ToString(),
+            source.ActivationLocked.ToString(),
+            string.Join("\n", words),
+            string.Join("\n", channels)
+        ]);
+    }
+
+    private static string BuildRemoteProfileFingerprint(PairingState state)
+        => string.Join("\n", [
+            state.Enabled.ToString(),
+            state.ActivationLocked.ToString(),
+            string.Join("\n", state.Words.Order(StringComparer.OrdinalIgnoreCase)),
+            string.Join("\n", state.Channels.Order(StringComparer.Ordinal))
+        ]);
+
     private void DrawOwnerTab()
     {
         var isPet = configuration.ServerRole == "pet";
-        ImGui.Text(isPet ? "Pet server controls" : "Relationship Owner");
+        ImGui.Text(isPet ? "Fixed role: Pet" : "Fixed role: Owner");
         ImGui.TextWrapped(isPet
-            ? "The Pet controls pairing and whether the Owner may change the incoming chat profile."
-            : "The Owner can change only the Pet's incoming chat activation, dictionary, and selected channels.");
+            ? "This is the fixed private Pet connection. The Pet controls whether the Owner may change the incoming chat profile."
+            : "This is the fixed private Owner connection. The Owner can change only the Pet's incoming chat activation, dictionary, and selected channels.");
 
-        if (!configuration.RemotePairingConfirmed)
+        if (!configuration.ServerConnected)
         {
             var role = serverRoleIndex;
             if (ImGui.Combo("Initial role", ref role, "Pet\0Owner\0"))
             {
                 serverRoleIndex = role;
                 configuration.ServerRole = role == 0 ? "pet" : "owner";
-                configuration.ServerClientId = string.Empty;
                 configuration.ServerToken = string.Empty;
-                configuration.RemotePairingConfirmed = false;
+                serverToken = string.Empty;
+                configuration.ServerConnected = false;
                 Save();
             }
             ImGui.Text("Server URL");
@@ -73,39 +133,30 @@ public sealed class SettingsWindow : Window
                 configuration.ServerUrl = serverUrl;
                 Save();
             }
+            ImGui.Text("Access token");
+            ImGui.SetNextItemWidth(-1);
+            if (ImGui.InputText("##server-token", ref serverToken, 256, ImGuiInputTextFlags.Password))
+            {
+                configuration.ServerToken = serverToken;
+                Save();
+            }
             if (ImGui.Button("Connect to ChatBound server"))
             {
                 var session = server.Connect();
+                if (session is not null)
+                {
+                    configuration.ServerConnected = true;
+                    lastPublishedProfile = string.Empty;
+                    lastAppliedProfile = string.Empty;
+                    nextServerSync = DateTime.MinValue;
+                }
                 Save();
                 ImGui.SameLine();
                 ImGui.Text(session is null ? "Connection failed." : "Connected.");
             }
         }
 
-        if (isPet)
-        {
-            if (ImGui.Button("Create remote pairing code"))
-            {
-                var result = server.CreatePairingCode();
-                if (result is not null)
-                    configuration.OwnerPairingCode = result.Code;
-                Save();
-            }
-            if (!string.IsNullOrEmpty(configuration.OwnerPairingCode))
-                ImGui.Text($"Pairing code: {configuration.OwnerPairingCode}");
-        }
-        else if (!configuration.RemotePairingConfirmed)
-        {
-            ImGui.SetNextItemWidth(-1);
-            ImGui.InputText("Remote pairing code", ref pairingCodeInput, 32);
-            if (ImGui.Button("Accept remote pairing") && server.AcceptPairing(pairingCodeInput))
-            {
-                configuration.RemotePairingConfirmed = true;
-                Save();
-            }
-        }
-
-        if (isPet && configuration.RemotePairingConfirmed)
+        if (isPet && configuration.ServerConnected)
         {
             var allowOwner = configuration.AllowOwnerProfileChanges;
             if (ImGui.Checkbox("Allow Owner to change incoming profile", ref allowOwner))
@@ -114,35 +165,27 @@ public sealed class SettingsWindow : Window
                 server.SetOwnerPermission(allowOwner);
                 Save();
             }
-            if (ImGui.Button("Apply remote incoming profile"))
+        }
+        else if (!isPet && configuration.ServerConnected)
+        {
+            ImGui.Text("Connected. Use Profile & dictionary to manage the permitted controls.");
+        }
+
+        if (!isPet)
+        {
+            var locked = configuration.ActivationLocked;
+            if (ImGui.Checkbox("Lock puppy mode activation", ref locked))
             {
-                var state = server.GetState();
-                if (state is not null && state.AllowOwnerProfileChanges)
-                {
-                    ApplyRemoteState(state);
-                    Save();
-                }
-            }
-            if (configuration.ActivationLocked)
-                ImGui.BeginDisabled();
-            if (ImGui.Button("Revoke remote pairing"))
-            {
-                server.Revoke();
-                configuration.RemotePairingConfirmed = false;
-                configuration.AllowOwnerProfileChanges = false;
-                configuration.ActivationLocked = false;
-                configuration.Enabled = false;
+                configuration.ActivationLocked = locked;
                 Save();
             }
-            if (configuration.ActivationLocked)
-            {
-                ImGui.EndDisabled();
-                ImGui.TextDisabled("Pairing cannot be revoked while puppy mode is locked.");
-            }
+            ImGui.TextDisabled("When locked, the Pet cannot change activation, channels, dictionary, or profile settings.");
         }
-        else if (!isPet && configuration.RemotePairingConfirmed)
+
+        if (configuration.ServerConnected && ImGui.Button("Disable role"))
         {
-            ImGui.Text("Paired. Use Profile & dictionary to manage the permitted controls.");
+            configuration.ServerConnected = false;
+            Save();
         }
 
         if (isPet && !configuration.ActivationLocked && ImGui.Button("Emergency disable"))
@@ -155,6 +198,13 @@ public sealed class SettingsWindow : Window
     private void DrawProfileTab()
     {
         var isOwner = configuration.ServerRole == "owner";
+        var petLocked = !isOwner && configuration.ActivationLocked;
+        if (petLocked)
+        {
+            ImGui.TextDisabled("Profile and dictionary controls are locked by the Owner.");
+            ImGui.BeginDisabled();
+        }
+
         if (!isOwner)
         {
             ImGui.Text("Active profile");
@@ -186,17 +236,10 @@ public sealed class SettingsWindow : Window
             }
 
             var enabled = configuration.Enabled;
-            if (configuration.ActivationLocked)
-                ImGui.BeginDisabled();
             if (ImGui.Checkbox("Activate puppy incoming chat filtering", ref enabled))
             {
                 configuration.Enabled = enabled;
                 Save();
-            }
-            if (configuration.ActivationLocked)
-            {
-                ImGui.EndDisabled();
-                ImGui.TextDisabled("Activation is locked by the Owner.");
             }
         }
         else
@@ -254,25 +297,15 @@ public sealed class SettingsWindow : Window
         if (isOwner)
         {
             var enabled = configuration.Enabled;
-            var locked = configuration.ActivationLocked;
             if (ImGui.Checkbox("Activate Pet incoming chat filtering", ref enabled))
             {
                 configuration.Enabled = enabled;
                 Save();
             }
-            if (ImGui.Checkbox("Lock puppy mode activation", ref locked))
-            {
-                configuration.ActivationLocked = locked;
-                Save();
-            }
-            ImGui.TextDisabled("When locked, the Pet cannot change the activation state.");
-            if (configuration.RemotePairingConfirmed && ImGui.Button("Publish permitted controls to Pet"))
-            {
-                var state = server.UpdateProfile(configuration);
-                ImGui.SameLine();
-                ImGui.Text(state is null ? "Not permitted or not paired." : "Published.");
-            }
         }
+
+        if (petLocked)
+            ImGui.EndDisabled();
     }
 
     private void DrawChannelRow(params (XivChatType Channel, string Label)[] channels)
@@ -296,6 +329,7 @@ public sealed class SettingsWindow : Window
     {
         profile = configuration.ActiveProfile;
         serverUrl = configuration.ServerUrl;
+        serverToken = configuration.ServerToken;
         serverRoleIndex = string.Equals(configuration.ServerRole, "owner", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
         LoadDictionary();
     }
@@ -311,6 +345,7 @@ public sealed class SettingsWindow : Window
             .Select(channel => channel!.Value)
             .ToHashSet();
         configuration.Profiles[configuration.ActiveProfile] = state.Words.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        configuration.SaveDictionary(pluginInterface, configuration.ActiveProfile);
         LoadDictionary();
     }
 

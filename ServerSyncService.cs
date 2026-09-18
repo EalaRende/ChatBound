@@ -16,30 +16,15 @@ public sealed class ServerSyncService : IDisposable
 
     public bool IsConfigured => Uri.TryCreate(configuration.ServerUrl, UriKind.Absolute, out _);
 
-    public SessionResponse? Connect()
+    public ServerConnection? Connect()
     {
         if (!IsConfigured)
             return null;
 
-        if (!string.IsNullOrWhiteSpace(configuration.ServerToken))
-            return GetState() is not null
-                ? new SessionResponse(configuration.ServerClientId, configuration.ServerToken, configuration.ServerRole)
-                : null;
-
-        var session = Post<SessionResponse>("api/v1/sessions", new { role = configuration.ServerRole });
-        if (session is null)
-            return null;
-
-        configuration.ServerClientId = session.ClientId;
-        configuration.ServerToken = session.Token;
-        return session;
+        return GetState() is not null
+            ? new ServerConnection(configuration.ServerRole)
+            : null;
     }
-
-    public PairingCodeResponse? CreatePairingCode()
-        => Post<PairingCodeResponse>("api/v1/pairing/code", null);
-
-    public bool AcceptPairing(string code)
-        => Post<object>("api/v1/pairing/accept", new { code }) is not null;
 
     public PairingState? GetState()
         => Get<PairingState>("api/v1/pairing/state");
@@ -56,9 +41,6 @@ public sealed class ServerSyncService : IDisposable
             channels = source.Channels.Select(channel => channel.ToString()).ToArray()
         });
 
-    public bool Revoke()
-        => Post<object>("api/v1/pairing/revoke", null) is not null;
-
     public void Dispose() => httpClient.Dispose();
 
     private T? Get<T>(string path)
@@ -66,20 +48,6 @@ public sealed class ServerSyncService : IDisposable
         try
         {
             using var request = CreateRequest(HttpMethod.Get, path);
-            using var response = httpClient.Send(request);
-            return response.IsSuccessStatusCode ? response.Content.ReadFromJsonAsync<T>().GetAwaiter().GetResult() : default;
-        }
-        catch (HttpRequestException) { return default; }
-        catch (TaskCanceledException) { return default; }
-    }
-
-    private T? Post<T>(string path, object? body)
-    {
-        try
-        {
-            using var request = CreateRequest(HttpMethod.Post, path);
-            if (body is not null)
-                request.Content = JsonContent.Create(body);
             using var response = httpClient.Send(request);
             return response.IsSuccessStatusCode ? response.Content.ReadFromJsonAsync<T>().GetAwaiter().GetResult() : default;
         }
@@ -109,6 +77,5 @@ public sealed class ServerSyncService : IDisposable
     }
 }
 
-public sealed record SessionResponse(string ClientId, string Token, string Role);
-public sealed record PairingCodeResponse(string Code, int ExpiresInSeconds);
-public sealed record PairingState(bool Paired, bool Enabled, bool ActivationLocked, bool AllowOwnerProfileChanges, string[] Words, string[] Channels, string UnknownWordMode, string? OwnerClientId);
+public sealed record ServerConnection(string Role);
+public sealed record PairingState(bool Paired, bool Enabled, bool ActivationLocked, bool AllowOwnerProfileChanges, string[] Words, string[] Channels, string UnknownWordMode);

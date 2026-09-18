@@ -2,7 +2,6 @@ using Dalamud.Configuration;
 using Dalamud.Plugin;
 using Dalamud.Game.Text;
 using System.Text;
-using System.Security.Cryptography;
 
 namespace ChatBound;
 
@@ -12,14 +11,10 @@ public sealed class ChatBoundConfiguration : IPluginConfiguration
     public int Version { get; set; } = 1;
     public bool Enabled { get; set; }
     public string ActiveProfile { get; set; } = "Puppy Basics";
-    public ulong OwnerObjectId { get; set; }
-    public string OwnerPairingCode { get; set; } = string.Empty;
-    public bool OwnerConsentConfirmed { get; set; }
-    public string ServerUrl { get; set; } = "[removed]";
+    public string ServerUrl { get; set; } = "https://chatbound.app";
     public string ServerRole { get; set; } = "pet";
-    public string ServerClientId { get; set; } = string.Empty;
     public string ServerToken { get; set; } = string.Empty;
-    public bool RemotePairingConfirmed { get; set; }
+    public bool ServerConnected { get; set; }
     public bool AllowOwnerProfileChanges { get; set; }
     public bool ActivationLocked { get; set; }
     public UnknownWordMode UnknownWords { get; set; } = UnknownWordMode.ReplaceWithDots;
@@ -76,15 +71,6 @@ public sealed class ChatBoundConfiguration : IPluginConfiguration
     }
 
     public void Save(IDalamudPluginInterface pluginInterface) => pluginInterface.SavePluginConfig(this);
-
-    public void GeneratePairingCode()
-    {
-        const string alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-        Span<byte> bytes = stackalloc byte[8];
-        RandomNumberGenerator.Fill(bytes);
-        OwnerPairingCode = string.Concat(bytes.ToArray().Select(value => alphabet[value % alphabet.Length]));
-        OwnerConsentConfirmed = false;
-    }
 
     private string GetDictionaryPath(IDalamudPluginInterface pluginInterface, string profileName)
         => Path.Combine(pluginInterface.ConfigDirectory.FullName, "Dictionaries", $"{profileName}.txt");
