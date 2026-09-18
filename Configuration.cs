@@ -22,6 +22,7 @@ public sealed class ChatBoundConfiguration : IPluginConfiguration
     public string ServerToken { get; set; } = string.Empty;
     public bool RemotePairingConfirmed { get; set; }
     public bool AllowOwnerProfileChanges { get; set; }
+    public bool ActivationLocked { get; set; }
     public UnknownWordMode UnknownWords { get; set; } = UnknownWordMode.ReplaceWithDots;
     public HashSet<XivChatType> Channels { get; set; } = new()
     {

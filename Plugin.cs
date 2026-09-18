@@ -1,5 +1,4 @@
 using Dalamud.Game.Chat;
-using Dalamud.Game.ClientState.Objects;
 using Dalamud.Game.Text;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.IoC;
@@ -15,7 +14,6 @@ public sealed class Plugin : IDalamudPlugin
 
     [PluginService] internal static IChatGui ChatGui { get; private set; } = null!;
     [PluginService] internal static ICommandManager CommandManager { get; private set; } = null!;
-    [PluginService] internal static ITargetManager TargetManager { get; private set; } = null!;
     [PluginService] internal static IDalamudPluginInterface PluginInterface { get; private set; } = null!;
 
     private readonly ChatBoundConfiguration configuration;
@@ -29,7 +27,7 @@ public sealed class Plugin : IDalamudPlugin
         configuration = ChatBoundConfiguration.Load(PluginInterface);
         filter = new ChatFilterService(configuration);
         server = new ServerSyncService(configuration);
-        settings = new SettingsWindow(configuration, PluginInterface, TargetManager, server);
+        settings = new SettingsWindow(configuration, PluginInterface, server);
         windows.AddWindow(settings);
 
         CommandManager.AddHandler("/chatbound", new Dalamud.Game.Command.CommandInfo((_, _) => settings.IsOpen = true)

@@ -65,11 +65,12 @@ app.MapPut("/api/v1/pairing/profile", (ProfileUpdate body, HttpRequest request, 
 
 app.MapPost("/api/v1/pairing/revoke", (HttpRequest request, ChatBoundStore store) =>
 {
-    if (!store.TryAuthenticate(request, out var session))
+    if (!store.TryAuthenticate(request, out var session) || session.Role != "pet")
         return Results.Unauthorized();
 
-    store.Revoke(session.ClientId);
-    return Results.Ok(new { status = "revoked" });
+    return store.TryRevoke(session.ClientId)
+        ? Results.Ok(new { status = "revoked" })
+        : Results.StatusCode(StatusCodes.Status403Forbidden);
 });
 
 app.Run();
@@ -77,9 +78,9 @@ app.Run();
 record CreateSessionRequest(string Role);
 record AcceptPairingRequest(string Code);
 record PermissionRequest(bool AllowOwnerProfileChanges);
-record ProfileUpdate(bool Enabled, string[] Words, string[] Channels, string UnknownWordMode);
+record ProfileUpdate(bool Enabled, bool ActivationLocked, string[] Words, string[] Channels);
 record SessionResponse(string ClientId, string Token, string Role);
-record PairingState(bool Paired, bool Enabled, bool AllowOwnerProfileChanges, string[] Words, string[] Channels, string UnknownWordMode, string? OwnerClientId);
+record PairingState(bool Paired, bool Enabled, bool ActivationLocked, bool AllowOwnerProfileChanges, string[] Words, string[] Channels, string UnknownWordMode, string? OwnerClientId);
 
 sealed class ChatBoundStore
 {
@@ -126,8 +127,8 @@ sealed class ChatBoundStore
     {
         var pair = pairingsByPet.Values.FirstOrDefault(item => item.PetClientId == clientId || item.OwnerClientId == clientId);
         return pair is null
-            ? new PairingState(false, false, false, [], [], "ReplaceWithDots", null)
-            : new PairingState(true, pair.Enabled, pair.AllowOwnerProfileChanges, pair.Words.ToArray(), pair.Channels.ToArray(), pair.UnknownWordMode, pair.OwnerClientId);
+            ? new PairingState(false, false, false, false, [], [], "ReplaceWithDots", null)
+            : new PairingState(true, pair.Enabled, pair.ActivationLocked, pair.AllowOwnerProfileChanges, pair.Words.ToArray(), pair.Channels.ToArray(), pair.UnknownWordMode, pair.OwnerClientId);
     }
 
     public bool SetPermission(string petClientId, bool allowOwnerProfileChanges)
@@ -147,18 +148,22 @@ sealed class ChatBoundStore
             return false;
 
         pair.Enabled = update.Enabled;
+        pair.ActivationLocked = update.ActivationLocked;
         pair.Words = update.Words.Where(word => !string.IsNullOrWhiteSpace(word)).Select(word => word.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToHashSet(StringComparer.OrdinalIgnoreCase);
         pair.Channels = update.Channels.Where(channel => !string.IsNullOrWhiteSpace(channel)).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        pair.UnknownWordMode = update.UnknownWordMode;
         Persist();
         return true;
     }
 
-    public void Revoke(string clientId)
+    public bool TryRevoke(string clientId)
     {
+        if (pairingsByPet.Values.Any(pair => pair.PetClientId == clientId && pair.ActivationLocked))
+            return false;
+
         foreach (var item in pairingsByPet.Where(item => item.Value.PetClientId == clientId || item.Value.OwnerClientId == clientId).ToArray())
             pairingsByPet.TryRemove(item.Key, out _);
         Persist();
+        return true;
     }
 
     public bool TryAuthenticate(HttpRequest request, out Session session)
@@ -179,13 +184,14 @@ sealed class ChatBoundStore
     public sealed record Session(string ClientId, string Token, string Role);
     private sealed record PairingCode(string PetClientId, DateTimeOffset ExpiresAt);
     private sealed record PersistedState(List<Session> Sessions, List<PersistedPairing> Pairings);
-    private sealed record PersistedPairing(string PetClientId, string OwnerClientId, bool Enabled, bool AllowOwnerProfileChanges, string[] Words, string[] Channels, string UnknownWordMode);
+    private sealed record PersistedPairing(string PetClientId, string OwnerClientId, bool Enabled, bool ActivationLocked, bool AllowOwnerProfileChanges, string[] Words, string[] Channels, string UnknownWordMode);
     private sealed class Pairing
     {
         public Pairing(string petClientId, string ownerClientId) => (PetClientId, OwnerClientId) = (petClientId, ownerClientId);
         public string PetClientId { get; }
         public string OwnerClientId { get; }
         public bool Enabled { get; set; }
+        public bool ActivationLocked { get; set; }
         public bool AllowOwnerProfileChanges { get; set; }
         public HashSet<string> Words { get; set; } = new(StringComparer.OrdinalIgnoreCase);
         public HashSet<string> Channels { get; set; } = new(StringComparer.OrdinalIgnoreCase);
@@ -210,6 +216,7 @@ sealed class ChatBoundStore
                 var pair = new Pairing(item.PetClientId, item.OwnerClientId)
                 {
                     Enabled = item.Enabled,
+                    ActivationLocked = item.ActivationLocked,
                     AllowOwnerProfileChanges = item.AllowOwnerProfileChanges,
                     Words = item.Words.ToHashSet(StringComparer.OrdinalIgnoreCase),
                     Channels = item.Channels.ToHashSet(StringComparer.OrdinalIgnoreCase),
@@ -230,6 +237,7 @@ sealed class ChatBoundStore
                 pair.PetClientId,
                 pair.OwnerClientId,
                 pair.Enabled,
+                pair.ActivationLocked,
                 pair.AllowOwnerProfileChanges,
                 pair.Words.ToArray(),
                 pair.Channels.ToArray(),

@@ -51,9 +51,9 @@ public sealed class ServerSyncService : IDisposable
         => Put<PairingState>("api/v1/pairing/profile", new
         {
             enabled = source.Enabled,
+            activationLocked = source.ActivationLocked,
             words = source.Profiles.TryGetValue(source.ActiveProfile, out var words) ? words.ToArray() : [],
-            channels = source.Channels.Select(channel => channel.ToString()).ToArray(),
-            unknownWordMode = source.UnknownWords.ToString()
+            channels = source.Channels.Select(channel => channel.ToString()).ToArray()
         });
 
     public bool Revoke()
@@ -111,4 +111,4 @@ public sealed class ServerSyncService : IDisposable
 
 public sealed record SessionResponse(string ClientId, string Token, string Role);
 public sealed record PairingCodeResponse(string Code, int ExpiresInSeconds);
-public sealed record PairingState(bool Paired, bool Enabled, bool AllowOwnerProfileChanges, string[] Words, string[] Channels, string UnknownWordMode, string? OwnerClientId);
+public sealed record PairingState(bool Paired, bool Enabled, bool ActivationLocked, bool AllowOwnerProfileChanges, string[] Words, string[] Channels, string UnknownWordMode, string? OwnerClientId);
