@@ -4,7 +4,7 @@
     "Name": "ChatBound",
     "InternalName": "ChatBound",
     "AssemblyVersion": "0.1.2.0",
-    "Description": "Local, consent-oriented chat comprehension profiles for FFXIV.",
+    "Description": "Local, consent-oriented incoming chat profiles for FFXIV.",
     "ApplicableVersion": "any",
     "RepoUrl": "https://github.com/EalaRende/ChatBound",
     "DalamudApiLevel": 15,
