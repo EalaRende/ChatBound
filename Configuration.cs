@@ -12,7 +12,6 @@ public sealed class ChatBoundConfiguration : IPluginConfiguration
     public int Version { get; set; } = 1;
     public bool Enabled { get; set; }
     public string ActiveProfile { get; set; } = "Puppy Basics";
-    public string ControllerName { get; set; } = string.Empty;
     public ulong OwnerObjectId { get; set; }
     public string OwnerPairingCode { get; set; } = string.Empty;
     public bool OwnerConsentConfirmed { get; set; }

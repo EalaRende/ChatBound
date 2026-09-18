@@ -12,7 +12,6 @@ public sealed class SettingsWindow : Window
     private readonly IDalamudPluginInterface pluginInterface;
     private readonly ServerSyncService server;
     private string dictionaryText = string.Empty;
-    private string controller = string.Empty;
     private string profile = string.Empty;
     private string pairingCodeInput = string.Empty;
     private string serverUrl = string.Empty;
@@ -160,21 +159,22 @@ public sealed class SettingsWindow : Window
         {
             ImGui.Text("Active profile");
             ImGui.SetNextItemWidth(-1);
-            if (ImGui.InputText("##profile", ref profile, 64))
+            if (ImGui.BeginCombo("##profile", profile))
             {
-                if (!configuration.Profiles.ContainsKey(profile))
-                    configuration.Profiles[profile] = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                configuration.LoadDictionary(pluginInterface, profile);
-                LoadDictionary();
-                Save();
-            }
-
-            ImGui.Text("Designated controller label");
-            ImGui.SetNextItemWidth(-1);
-            if (ImGui.InputText("##controller", ref controller, 128))
-            {
-                configuration.ControllerName = controller;
-                Save();
+                foreach (var profileName in configuration.Profiles.Keys.Order(StringComparer.OrdinalIgnoreCase))
+                {
+                    var selected = string.Equals(profileName, configuration.ActiveProfile, StringComparison.OrdinalIgnoreCase);
+                    if (ImGui.Selectable(profileName, selected))
+                    {
+                        profile = profileName;
+                        configuration.LoadDictionary(pluginInterface, profileName);
+                        LoadDictionary();
+                        Save();
+                    }
+                    if (selected)
+                        ImGui.SetItemDefaultFocus();
+                }
+                ImGui.EndCombo();
             }
 
             ImGui.Text("Unknown words");
@@ -205,13 +205,38 @@ public sealed class SettingsWindow : Window
         ImGui.Spacing();
         ImGui.Text("Incoming chat channels");
         ImGui.TextDisabled("Only messages received by this client are filtered.");
-        DrawChannel(XivChatType.Say, "Say");
-        ImGui.SameLine();
-        DrawChannel(XivChatType.TellIncoming, "Tell");
-        ImGui.SameLine();
-        DrawChannel(XivChatType.Party, "Party");
-        ImGui.SameLine();
-        DrawChannel(XivChatType.Alliance, "Alliance");
+        DrawChannelRow(
+            (XivChatType.TellIncoming, "Tell"),
+            (XivChatType.Say, "Say"),
+            (XivChatType.Party, "Party"),
+            (XivChatType.Alliance, "Alliance"));
+        DrawChannelRow(
+            (XivChatType.Yell, "Yell"),
+            (XivChatType.Shout, "Shout"),
+            (XivChatType.FreeCompany, "Free Company"),
+            (XivChatType.Echo, "Echo"));
+        ImGui.Text("Linkshells");
+        DrawChannelRow(
+            (XivChatType.Ls1, "LS1"),
+            (XivChatType.Ls2, "LS2"),
+            (XivChatType.Ls3, "LS3"),
+            (XivChatType.Ls4, "LS4"));
+        DrawChannelRow(
+            (XivChatType.Ls5, "LS5"),
+            (XivChatType.Ls6, "LS6"),
+            (XivChatType.Ls7, "LS7"),
+            (XivChatType.Ls8, "LS8"));
+        ImGui.Text("Cross-world linkshells");
+        DrawChannelRow(
+            (XivChatType.CrossLinkShell1, "CWL1"),
+            (XivChatType.CrossLinkShell2, "CWL2"),
+            (XivChatType.CrossLinkShell3, "CWL3"),
+            (XivChatType.CrossLinkShell4, "CWL4"));
+        DrawChannelRow(
+            (XivChatType.CrossLinkShell5, "CWL5"),
+            (XivChatType.CrossLinkShell6, "CWL6"),
+            (XivChatType.CrossLinkShell7, "CWL7"),
+            (XivChatType.CrossLinkShell8, "CWL8"));
 
         ImGui.Spacing();
         ImGui.Text("Understandable dictionary");
@@ -250,21 +275,26 @@ public sealed class SettingsWindow : Window
         }
     }
 
-    private void DrawChannel(XivChatType channel, string label)
+    private void DrawChannelRow(params (XivChatType Channel, string Label)[] channels)
     {
-        var selected = configuration.Channels.Contains(channel);
-        if (ImGui.Checkbox(label, ref selected))
+        for (var index = 0; index < channels.Length; index++)
         {
-            if (selected) configuration.Channels.Add(channel);
-            else configuration.Channels.Remove(channel);
-            Save();
+            var channel = channels[index];
+            if (index > 0)
+                ImGui.SameLine();
+            var selected = configuration.Channels.Contains(channel.Channel);
+            if (ImGui.Checkbox(channel.Label, ref selected))
+            {
+                if (selected) configuration.Channels.Add(channel.Channel);
+                else configuration.Channels.Remove(channel.Channel);
+                Save();
+            }
         }
     }
 
     private void LoadState()
     {
         profile = configuration.ActiveProfile;
-        controller = configuration.ControllerName;
         serverUrl = configuration.ServerUrl;
         serverRoleIndex = string.Equals(configuration.ServerRole, "owner", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
         LoadDictionary();
