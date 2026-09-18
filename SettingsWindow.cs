@@ -78,6 +78,11 @@ public sealed class SettingsWindow : Window
         nextServerSync = now.Add(ServerSyncInterval);
         if (configuration.ServerRole == "owner")
         {
+            var ownerState = server.GetState();
+            if (ownerState is null)
+                return;
+
+            MergeRemoteWords(ownerState.Words);
             var profile = BuildProfileFingerprint(configuration);
             if (profile == lastPublishedProfile)
                 return;
@@ -305,6 +310,8 @@ public sealed class SettingsWindow : Window
                 .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
             configuration.SaveDictionary(pluginInterface, configuration.ActiveProfile);
+            if (configuration.ServerRole == "pet" && configuration.ServerConnected)
+                server.UpdateDictionary(configuration);
             Save();
         }
 
@@ -350,6 +357,23 @@ public sealed class SettingsWindow : Window
         configuration.Profiles[configuration.ActiveProfile] = state.Words.ToHashSet(StringComparer.OrdinalIgnoreCase);
         configuration.SaveDictionary(pluginInterface, configuration.ActiveProfile);
         LoadDictionary();
+    }
+
+    private void MergeRemoteWords(IEnumerable<string> words)
+    {
+        var localWords = configuration.Profiles.TryGetValue(configuration.ActiveProfile, out var current)
+            ? current
+            : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var mergedWords = localWords
+            .Concat(words)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (mergedWords.SetEquals(localWords))
+            return;
+
+        configuration.Profiles[configuration.ActiveProfile] = mergedWords;
+        configuration.SaveDictionary(pluginInterface, configuration.ActiveProfile);
+        LoadDictionary();
+        Save();
     }
 
     private void LoadDictionary()

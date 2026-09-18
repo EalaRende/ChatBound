@@ -42,6 +42,12 @@ public sealed class ServerSyncService : IDisposable
             channels = source.Channels.Select(channel => channel.ToString()).ToArray()
         });
 
+    public PairingState? UpdateDictionary(ChatBoundConfiguration source)
+        => Put<PairingState>("api/v1/pairing/dictionary", new
+        {
+            words = source.Profiles.TryGetValue(source.ActiveProfile, out var words) ? words.ToArray() : []
+        });
+
     public void Dispose() => httpClient.Dispose();
 
     private T? Get<T>(string path)

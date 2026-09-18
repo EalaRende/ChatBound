@@ -3,7 +3,7 @@
     "Author": "ChatBound",
     "Name": "ChatBound",
     "InternalName": "ChatBound",
-    "AssemblyVersion": "0.1.4.0",
+    "AssemblyVersion": "0.1.5.0",
     "Description": "Local, consent-oriented incoming chat profiles for FFXIV.",
     "ApplicableVersion": "any",
     "RepoUrl": "https://github.com/EalaRende/ChatBound",
@@ -12,7 +12,7 @@
     "Punchline": "Choose what your local chat profile can understand.",
     "AcceptsFeedback": true,
     "Tags": ["chat", "roleplay", "accessibility"],
-    "DownloadLinkInstall": "https://github.com/EalaRende/ChatBound/releases/download/v0.1.4/ChatBound-0.1.4.zip",
-    "DownloadLinkUpdate": "https://github.com/EalaRende/ChatBound/releases/download/v0.1.4/ChatBound-0.1.4.zip"
+    "DownloadLinkInstall": "https://github.com/EalaRende/ChatBound/releases/download/v0.1.5/ChatBound-0.1.5.zip",
+    "DownloadLinkUpdate": "https://github.com/EalaRende/ChatBound/releases/download/v0.1.5/ChatBound-0.1.5.zip"
   }
 ]  

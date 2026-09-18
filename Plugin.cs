@@ -31,9 +31,9 @@ public sealed class Plugin : IDalamudPlugin
         settings = new SettingsWindow(configuration, PluginInterface, server);
         windows.AddWindow(settings);
 
-        CommandManager.AddHandler("/chatbound", new Dalamud.Game.Command.CommandInfo((_, _) => OpenMainUi())
+        CommandManager.AddHandler("/chatbound", new Dalamud.Game.Command.CommandInfo(OnCommand)
         {
-            HelpMessage = "Open ChatBound settings"
+            HelpMessage = "Open ChatBound settings, or use 'on'/'off' to toggle Puppy Mode"
         });
         ChatGui.ChatMessage += OnChatMessage;
         PluginInterface.UiBuilder.Draw += OnUiDraw;
@@ -42,6 +42,41 @@ public sealed class Plugin : IDalamudPlugin
     }
 
     private void OpenMainUi() => settings.IsOpen = true;
+
+    private void OnCommand(string command, string arguments)
+    {
+        var option = arguments.Trim().ToLowerInvariant();
+        if (option.Length == 0)
+        {
+            OpenMainUi();
+            return;
+        }
+
+        if (option is not ("on" or "off"))
+        {
+            ChatGui.Print("ChatBound usage: /chatbound on, /chatbound off, or /chatbound.");
+            return;
+        }
+
+        if (configuration.ServerRole != "owner")
+        {
+            ChatGui.Print("ChatBound Puppy Mode can only be controlled by the Owner.");
+            return;
+        }
+
+        if (!configuration.ServerConnected)
+        {
+            ChatGui.Print("ChatBound is not connected. The Owner must connect before changing Puppy Mode.");
+            return;
+        }
+
+        configuration.Enabled = option == "on";
+        configuration.Save(PluginInterface);
+        var published = server.UpdateProfile(configuration) is not null;
+        ChatGui.Print(published
+            ? $"ChatBound Puppy Mode {(configuration.Enabled ? "enabled" : "disabled")} for the Pet."
+            : "ChatBound could not update the Pet. The change will be retried automatically.");
+    }
 
     private void OpenConfig() => settings.IsOpen = true;
 

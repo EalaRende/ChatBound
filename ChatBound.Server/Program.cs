@@ -35,10 +35,21 @@ app.MapPut("/api/v1/pairing/profile", (ProfileUpdate body, HttpRequest request, 
         : Results.StatusCode(StatusCodes.Status403Forbidden);
 });
 
+app.MapPut("/api/v1/pairing/dictionary", (DictionaryUpdate body, HttpRequest request, ChatBoundStore store) =>
+{
+    if (!store.TryAuthenticate(request, out var role) || role != "pet")
+        return Results.Unauthorized();
+
+    return store.MergeDictionary(body)
+        ? Results.Ok(store.GetState(role))
+        : Results.StatusCode(StatusCodes.Status403Forbidden);
+});
+
 app.Run();
 
 record PermissionRequest(bool AllowOwnerProfileChanges);
 record ProfileUpdate(bool Enabled, bool ActivationLocked, string UnknownWordMode, string[] Words, string[] Channels);
+record DictionaryUpdate(string[] Words);
 record PairingState(bool Paired, bool Enabled, bool ActivationLocked, bool AllowOwnerProfileChanges, string[] Words, string[] Channels, string UnknownWordMode);
 
 sealed class ChatBoundStore
@@ -130,6 +141,18 @@ sealed class ChatBoundStore
         pairing.Channels = update.Channels
             .Where(channel => !string.IsNullOrWhiteSpace(channel))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        Persist();
+        return true;
+    }
+
+    public bool MergeDictionary(DictionaryUpdate update)
+    {
+        if (pairing.ActivationLocked)
+            return false;
+
+        foreach (var word in update.Words.Where(word => !string.IsNullOrWhiteSpace(word)))
+            pairing.Words.Add(word.Trim());
+
         Persist();
         return true;
     }
