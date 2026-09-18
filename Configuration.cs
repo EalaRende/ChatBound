@@ -8,10 +8,11 @@ namespace ChatBound;
 [Serializable]
 public sealed class ChatBoundConfiguration : IPluginConfiguration
 {
+    public const string ProductionServerUrl = "https://chatbound.app";
     public int Version { get; set; } = 1;
     public bool Enabled { get; set; }
     public string ActiveProfile { get; set; } = "Puppy Basics";
-    public string ServerUrl { get; set; } = "https://chatbound.app";
+    public string ServerUrl => ProductionServerUrl;
     public string ServerRole { get; set; } = "pet";
     public string ServerToken { get; set; } = string.Empty;
     public bool ServerConnected { get; set; }

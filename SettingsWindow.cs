@@ -13,7 +13,6 @@ public sealed class SettingsWindow : Window
     private readonly ServerSyncService server;
     private string dictionaryText = string.Empty;
     private string profile = string.Empty;
-    private string serverUrl = string.Empty;
     private string serverToken = string.Empty;
     private int serverRoleIndex;
     private DateTime nextServerSync = DateTime.MinValue;
@@ -124,13 +123,6 @@ public sealed class SettingsWindow : Window
                 configuration.ServerToken = string.Empty;
                 serverToken = string.Empty;
                 configuration.ServerConnected = false;
-                Save();
-            }
-            ImGui.Text("Server URL");
-            ImGui.SetNextItemWidth(-1);
-            if (ImGui.InputText("##server-url", ref serverUrl, 256))
-            {
-                configuration.ServerUrl = serverUrl;
                 Save();
             }
             ImGui.Text("Access token");
@@ -328,7 +320,6 @@ public sealed class SettingsWindow : Window
     private void LoadState()
     {
         profile = configuration.ActiveProfile;
-        serverUrl = configuration.ServerUrl;
         serverToken = configuration.ServerToken;
         serverRoleIndex = string.Equals(configuration.ServerRole, "owner", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
         LoadDictionary();
