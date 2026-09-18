@@ -30,14 +30,17 @@ public sealed class Plugin : IDalamudPlugin
         settings = new SettingsWindow(configuration, PluginInterface, server);
         windows.AddWindow(settings);
 
-        CommandManager.AddHandler("/chatbound", new Dalamud.Game.Command.CommandInfo((_, _) => settings.IsOpen = true)
+        CommandManager.AddHandler("/chatbound", new Dalamud.Game.Command.CommandInfo((_, _) => OpenMainUi())
         {
             HelpMessage = "Open ChatBound settings"
         });
         ChatGui.ChatMessage += OnChatMessage;
         PluginInterface.UiBuilder.Draw += windows.Draw;
+        PluginInterface.UiBuilder.OpenMainUi += OpenMainUi;
         PluginInterface.UiBuilder.OpenConfigUi += OpenConfig;
     }
+
+    private void OpenMainUi() => settings.IsOpen = true;
 
     private void OpenConfig() => settings.IsOpen = true;
 
@@ -47,6 +50,7 @@ public sealed class Plugin : IDalamudPlugin
     {
         ChatGui.ChatMessage -= OnChatMessage;
         PluginInterface.UiBuilder.Draw -= windows.Draw;
+        PluginInterface.UiBuilder.OpenMainUi -= OpenMainUi;
         PluginInterface.UiBuilder.OpenConfigUi -= OpenConfig;
         windows.RemoveAllWindows();
         CommandManager.RemoveHandler("/chatbound");
