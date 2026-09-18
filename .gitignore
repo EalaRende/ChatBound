@@ -6,6 +6,12 @@ ChatBound.Server/local-secrets/
 ChatBound.Server/bin/
 ChatBound.Server/obj/
 server-publish/
+deploy-server.ps1
+deploy-server.passphrase.txt
+deploy-server.sudo-password.txt
+server-deploy-staging/
+server-deploy.tar.gz
+server-upload/
 dist/
 chatbound-server.json
 ChatBound.Server/chatbound-server.json

@@ -10,6 +10,7 @@ namespace ChatBound;
 public sealed class ChatFilterService
 {
     private static readonly Regex WordPattern = new(@"[\p{L}\p{N}_']+", RegexOptions.Compiled);
+    private static readonly Regex ActionPattern = new(@"\*[^\r\n*]*\*", RegexOptions.Compiled);
     private readonly ChatBoundConfiguration configuration;
     private readonly IObjectTable objectTable;
 
@@ -37,6 +38,10 @@ public sealed class ChatFilterService
 
         var text = message.Message.TextValue;
         var allowedCharacters = new bool[text.Length];
+        foreach (Match action in ActionPattern.Matches(text))
+            for (var index = action.Index; index < action.Index + action.Length; index++)
+                allowedCharacters[index] = true;
+
         var allowedPattern = new Regex(
             $@"(?<![\p{{L}}\p{{N}}_'])(?:{string.Join("|", words.OrderByDescending(word => word.Length).Select(Regex.Escape))})(?![\p{{L}}\p{{N}}_'])",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
