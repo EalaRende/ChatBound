@@ -37,6 +37,7 @@ public sealed class ServerSyncService : IDisposable
         {
             enabled = source.Enabled,
             activationLocked = source.ActivationLocked,
+            unknownWordMode = source.UnknownWords.ToString(),
             words = source.Profiles.TryGetValue(source.ActiveProfile, out var words) ? words.ToArray() : [],
             channels = source.Channels.Select(channel => channel.ToString()).ToArray()
         });

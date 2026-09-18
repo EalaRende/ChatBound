@@ -2,7 +2,7 @@
   "Author": "ChatBound",
   "Name": "ChatBound",
   "InternalName": "ChatBound",
-  "AssemblyVersion": "0.1.2.0",
+  "AssemblyVersion": "0.1.4.0",
   "Description": "Local, consent-oriented chat comprehension profiles for FFXIV.",
   "ApplicableVersion": "any",
   "RepoUrl": "",

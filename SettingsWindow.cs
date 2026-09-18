@@ -16,6 +16,7 @@ public sealed class SettingsWindow : Window
     private string serverToken = string.Empty;
     private int serverRoleIndex;
     private DateTime nextServerSync = DateTime.MinValue;
+    private static readonly TimeSpan ServerSyncInterval = TimeSpan.FromSeconds(10);
     private string lastPublishedProfile = string.Empty;
     private string lastAppliedProfile = string.Empty;
 
@@ -55,10 +56,26 @@ public sealed class SettingsWindow : Window
 
     public void SynchronizeServer()
     {
-        if (!configuration.ServerConnected || DateTime.UtcNow < nextServerSync)
+        var now = DateTime.UtcNow;
+        if (!configuration.ServerConnected)
+        {
+            if (!configuration.AutoConnect || string.IsNullOrWhiteSpace(configuration.ServerToken) || now < nextServerSync)
+                return;
+
+            nextServerSync = now.Add(ServerSyncInterval);
+            if (server.Connect() is null)
+                return;
+
+            configuration.ServerConnected = true;
+            lastPublishedProfile = string.Empty;
+            lastAppliedProfile = string.Empty;
+            Save();
+        }
+
+        if (now < nextServerSync)
             return;
 
-        nextServerSync = DateTime.UtcNow.AddSeconds(1);
+        nextServerSync = now.Add(ServerSyncInterval);
         if (configuration.ServerRole == "owner")
         {
             var profile = BuildProfileFingerprint(configuration);
@@ -92,6 +109,7 @@ public sealed class SettingsWindow : Window
         return string.Join("\n", [
             source.Enabled.ToString(),
             source.ActivationLocked.ToString(),
+            source.UnknownWords.ToString(),
             string.Join("\n", words),
             string.Join("\n", channels)
         ]);
@@ -101,6 +119,7 @@ public sealed class SettingsWindow : Window
         => string.Join("\n", [
             state.Enabled.ToString(),
             state.ActivationLocked.ToString(),
+            state.UnknownWordMode,
             string.Join("\n", state.Words.Order(StringComparer.OrdinalIgnoreCase)),
             string.Join("\n", state.Channels.Order(StringComparer.Ordinal))
         ]);
@@ -138,6 +157,7 @@ public sealed class SettingsWindow : Window
                 if (session is not null)
                 {
                     configuration.ServerConnected = true;
+                    configuration.AutoConnect = true;
                     lastPublishedProfile = string.Empty;
                     lastAppliedProfile = string.Empty;
                     nextServerSync = DateTime.MinValue;
@@ -177,6 +197,7 @@ public sealed class SettingsWindow : Window
         if (configuration.ServerConnected && ImGui.Button("Disable role"))
         {
             configuration.ServerConnected = false;
+            configuration.AutoConnect = false;
             Save();
         }
 
@@ -195,6 +216,21 @@ public sealed class SettingsWindow : Window
         {
             ImGui.TextDisabled("Profile and dictionary controls are locked by the Owner.");
             ImGui.BeginDisabled();
+        }
+
+        var enabled = configuration.Enabled;
+        if (ImGui.Checkbox("Activate Puppy Mode", ref enabled))
+        {
+            configuration.Enabled = enabled;
+            Save();
+        }
+
+        ImGui.Text("Unknown words");
+        var mode = (int)configuration.UnknownWords;
+        if (ImGui.Combo("##unknown", ref mode, "Replace with dots\0Remove\0Hide entire message\0"))
+        {
+            configuration.UnknownWords = (UnknownWordMode)mode;
+            Save();
         }
 
         if (!isOwner)
@@ -219,20 +255,6 @@ public sealed class SettingsWindow : Window
                 ImGui.EndCombo();
             }
 
-            ImGui.Text("Unknown words");
-            var mode = (int)configuration.UnknownWords;
-            if (ImGui.Combo("##unknown", ref mode, "Replace with dots\0Remove\0Hide entire message\0"))
-            {
-                configuration.UnknownWords = (UnknownWordMode)mode;
-                Save();
-            }
-
-            var enabled = configuration.Enabled;
-            if (ImGui.Checkbox("Activate puppy incoming chat filtering", ref enabled))
-            {
-                configuration.Enabled = enabled;
-                Save();
-            }
         }
         else
             ImGui.Text("Owner controls for the paired Pet");
@@ -284,16 +306,6 @@ public sealed class SettingsWindow : Window
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
             configuration.SaveDictionary(pluginInterface, configuration.ActiveProfile);
             Save();
-        }
-
-        if (isOwner)
-        {
-            var enabled = configuration.Enabled;
-            if (ImGui.Checkbox("Activate Pet incoming chat filtering", ref enabled))
-            {
-                configuration.Enabled = enabled;
-                Save();
-            }
         }
 
         if (petLocked)

@@ -16,6 +16,7 @@ public sealed class ChatBoundConfiguration : IPluginConfiguration
     public string ServerRole { get; set; } = "pet";
     public string ServerToken { get; set; } = string.Empty;
     public bool ServerConnected { get; set; }
+    public bool AutoConnect { get; set; } = true;
     public bool AllowOwnerProfileChanges { get; set; }
     public bool ActivationLocked { get; set; }
     public UnknownWordMode UnknownWords { get; set; } = UnknownWordMode.ReplaceWithDots;
@@ -44,20 +45,16 @@ public sealed class ChatBoundConfiguration : IPluginConfiguration
     public void LoadDictionary(IDalamudPluginInterface pluginInterface, string profileName)
     {
         var path = GetDictionaryPath(pluginInterface, profileName);
-        if (!File.Exists(path))
-        {
-            var bundledPath = Path.Combine(AppContext.BaseDirectory, "Dictionaries", $"{profileName}.txt");
-            if (File.Exists(bundledPath))
-            {
-                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-                File.Copy(bundledPath, path, overwrite: false);
-            }
-        }
-
-        if (!File.Exists(path))
+        var bundledPath = Path.Combine(AppContext.BaseDirectory, "Dictionaries", $"{profileName}.txt");
+        var bundledWords = File.Exists(bundledPath) ? ReadWords(bundledPath) : [];
+        var savedWords = File.Exists(path) ? ReadWords(path) : [];
+        if (bundledWords.Count == 0 && savedWords.Count == 0)
             return;
 
-        Profiles[profileName] = ReadWords(path);
+        Profiles[profileName] = savedWords
+            .Concat(bundledWords)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        SaveDictionary(pluginInterface, profileName);
         ActiveProfile = profileName;
     }
 

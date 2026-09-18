@@ -38,7 +38,7 @@ app.MapPut("/api/v1/pairing/profile", (ProfileUpdate body, HttpRequest request, 
 app.Run();
 
 record PermissionRequest(bool AllowOwnerProfileChanges);
-record ProfileUpdate(bool Enabled, bool ActivationLocked, string[] Words, string[] Channels);
+record ProfileUpdate(bool Enabled, bool ActivationLocked, string UnknownWordMode, string[] Words, string[] Channels);
 record PairingState(bool Paired, bool Enabled, bool ActivationLocked, bool AllowOwnerProfileChanges, string[] Words, string[] Channels, string UnknownWordMode);
 
 sealed class ChatBoundStore
@@ -119,6 +119,9 @@ sealed class ChatBoundStore
 
         pairing.Enabled = update.Enabled;
         pairing.ActivationLocked = update.ActivationLocked;
+        pairing.UnknownWordMode = string.IsNullOrWhiteSpace(update.UnknownWordMode)
+            ? "ReplaceWithDots"
+            : update.UnknownWordMode;
         pairing.Words = update.Words
             .Where(word => !string.IsNullOrWhiteSpace(word))
             .Select(word => word.Trim())
